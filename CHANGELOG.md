@@ -3,8 +3,7 @@
 ## [Unreleased]
 
 ### Added
-- Korean language support, including a Korean interface option, Hangul-capable EPUB reader font downloads, and per-EPUB-language reader font defaults.
-- Per-Language Fonts settings screen so the reader font for each UI language can be set directly without opening a book in that language.
+- Korean language support, including a Korean interface option and Hangul-capable EPUB reader font support via SD-card fonts.
 
 ### Removed
 - Manage Fonts / on-device font downloader. Reader fonts are now installed by copying `.cpfont` files to the SD card.

@@ -190,15 +190,6 @@ bool JsonSettingsIO::saveSettings(const CrossPointSettings& s, const char* path)
     doc["sdFontFamilyName"] = s.sdFontFamilyName;
   }
 
-  JsonObject languageFonts = doc["languageFonts"].to<JsonObject>();
-  for (const auto& langFont : s.languageFonts) {
-    if (langFont.languageCode[0] == '\0') continue;
-    JsonObject entry = languageFonts[langFont.languageCode].to<JsonObject>();
-    entry["fontFamily"] = langFont.fontFamily;
-    entry["fontSize"] = langFont.fontSize;
-    entry["sdFontFamilyName"] = langFont.sdFontFamilyName;
-  }
-
   // Language -- managed by LanguageSelectActivity, not in SettingsList.
   // Stored as ISO code string ("EN", "DE", ...) for stability across enum reorders.
   doc["language"] = (s.language < getLanguageCount()) ? LANGUAGE_CODES[s.language] : "EN";
@@ -339,37 +330,6 @@ bool JsonSettingsIO::loadSettings(CrossPointSettings& s, const char* json, bool*
   const char* sfn = doc["sdFontFamilyName"] | "";
   strncpy(s.sdFontFamilyName, sfn, sizeof(s.sdFontFamilyName) - 1);
   s.sdFontFamilyName[sizeof(s.sdFontFamilyName) - 1] = '\0';
-
-  bool hasLanguageFont = false;
-  JsonObjectConst languageFonts = doc["languageFonts"].as<JsonObjectConst>();
-  if (!languageFonts.isNull()) {
-    uint8_t slotIndex = 0;
-    for (JsonPairConst pair : languageFonts) {
-      if (slotIndex >= CrossPointSettings::LANGUAGE_FONT_SETTING_COUNT) break;
-      char normalized[CrossPointSettings::LANGUAGE_FONT_CODE_LEN];
-      if (!CrossPointSettings::normalizeLanguageCode(pair.key().c_str(), normalized, sizeof(normalized))) continue;
-
-      auto& slot = s.languageFonts[slotIndex++];
-      strncpy(slot.languageCode, normalized, sizeof(slot.languageCode) - 1);
-      slot.languageCode[sizeof(slot.languageCode) - 1] = '\0';
-
-      JsonObjectConst entry = pair.value().as<JsonObjectConst>();
-      slot.fontFamily =
-          clamp(entry["fontFamily"] | s.fontFamily, CrossPointSettings::BUILTIN_FONT_COUNT, s.fontFamily);
-      slot.fontSize = entry["fontSize"] | s.fontSize;
-      if (slot.fontSize >= CrossPointSettings::SD_FONT_MAX_SIZE_STEPS) {
-        slot.fontSize = s.fontSize;
-      }
-      const char* entrySdFont = entry["sdFontFamilyName"] | "";
-      strncpy(slot.sdFontFamilyName, entrySdFont, sizeof(slot.sdFontFamilyName) - 1);
-      slot.sdFontFamilyName[sizeof(slot.sdFontFamilyName) - 1] = '\0';
-      hasLanguageFont = true;
-    }
-  }
-  if (!hasLanguageFont) {
-    s.saveActiveReaderFontForLanguage("en");
-    if (needsResave) *needsResave = true;
-  }
 
   if (doc["lineHeightPercent"].isNull() && !doc["lineSpacing"].isNull()) {
     const uint8_t legacyLineSpacing = clamp(doc["lineSpacing"] | static_cast<uint8_t>(CrossPointSettings::NORMAL),

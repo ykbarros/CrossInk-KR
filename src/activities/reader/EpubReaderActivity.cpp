@@ -761,7 +761,6 @@ void EpubReaderActivity::loop() {
                              const auto& menu = std::get<MenuResult>(result.data);
                              applyOrientation(menu.orientation);
                              if (menu.settingsChanged) {
-                               saveActiveReaderFontDefault();
                                sdFontSystem.ensureLoaded(renderer);
                                RenderLock lock(*this);
                                if (section) {
@@ -819,7 +818,6 @@ void EpubReaderActivity::loop() {
       sideButtonLongPressHandled = !topReleased;
       if (sideLongPressChangesFont) {
         if (sdFontSystem.changeReaderFontSize(/*larger=*/true)) {
-          saveActiveReaderFontDefault();
           reindexCurrentSection();
         }
       } else {
@@ -832,7 +830,6 @@ void EpubReaderActivity::loop() {
       sideButtonLongPressHandled = !bottomReleased;
       if (sideLongPressChangesFont) {
         if (sdFontSystem.changeReaderFontSize(/*larger=*/false)) {
-          saveActiveReaderFontDefault();
           reindexCurrentSection();
         }
       } else {
@@ -1577,13 +1574,6 @@ void EpubReaderActivity::showTiltPageTurnFeedback(bool enabled) {
   tiltPageTurnFeedbackEnabled = enabled;
   pendingTiltPageTurnFeedback = true;
   tiltPageTurnFeedbackShowTime = millis();
-}
-
-void EpubReaderActivity::saveActiveReaderFontDefault() {
-  if (!epub) return;
-  if (SETTINGS.saveActiveReaderFontForLanguage(epub->getLanguage().c_str())) {
-    SETTINGS.saveToFile();
-  }
 }
 
 void EpubReaderActivity::applyOrientation(const uint8_t orientation) {
