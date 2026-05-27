@@ -223,9 +223,12 @@ class SdCardFont {
   // Bounded to ADVANCE_CACHE_LIMIT entries; persists across layout passes
   // (across calls to clearCache()) so repeated indexing of the same font
   // amortizes SD reads. Cleared only on font unload or clearPersistentCache().
-  // Keep this conservative: the cache is resident per style, so large caps
-  // quickly eat heap on the ESP32-C3.
-  static constexpr uint32_t ADVANCE_CACHE_LIMIT = 256;
+  // Sized to fit Korean (Hangul) novels, which routinely use 1500–2500 unique
+  // syllables per book; below that, layout-time getAdvance() misses return 0
+  // and words collide horizontally because their measured width is wrong.
+  // At 8 bytes per entry × ~1 style in typical use, this costs ~16 KB resident
+  // on the ESP32-C3; the existing low-memory paths can release it on pressure.
+  static constexpr uint32_t ADVANCE_CACHE_LIMIT = 2048;
   AdvanceEntry* advanceTable_[MAX_STYLES] = {};
   uint32_t advanceTableSize_[MAX_STYLES] = {};
   bool advanceTableLookup(uint8_t styleIdx, uint32_t codepoint, uint16_t* outAdvance) const;

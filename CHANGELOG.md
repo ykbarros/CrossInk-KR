@@ -25,6 +25,7 @@
 - Book selection now shows a loading popup before EPUB indexing or cache loading begins.
 
 ### Fixed
+- Korean EPUB pages no longer have words and characters drawn on top of each other. The per-font glyph-advance cache was capped at 256 entries — fine for Latin scripts but far below the ~1500–2500 unique Hangul syllables in a typical Korean novel. Once the cap was hit, layout-time width measurements for uncached syllables returned zero, so words were placed at colliding X positions. Cap raised to 2048.
 - Korean EPUB title and author text can render through the active Hangul-capable SD font instead of falling back to missing-glyph boxes.
 - Fixed inverted reader menus so front-button hint outlines keep the normal portrait shape while the labels stay readable in the inverted orientation.
 - Fixed web file uploads so replacing a book refreshes render/cache files without wiping that book's saved progress, per-book stats, or reader settings.
