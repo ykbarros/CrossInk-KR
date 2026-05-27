@@ -55,6 +55,24 @@ constexpr char FALLBACK_FONT_SECTION_CACHE_SUFFIX[] = "_fallback_font";
 constexpr uint32_t MIN_READING_PACE_SAMPLE_SECONDS = 2;
 constexpr uint32_t MAX_READING_PACE_SAMPLE_SECONDS = 10 * 60;
 
+// Korean (Hangul) glyphs are vertically taller than what most TTFs report as
+// face.size.height, and most KR fonts ship with ~0 line gap. At the Latin-tuned
+// default of 1.0× advanceY this causes lines to visually overlap. Bump only when
+// the book's dc:language is Korean so English/other-language layout is untouched.
+constexpr float KOREAN_LINE_COMPRESSION_FACTOR = 1.35f;
+
+bool isKoreanBook(const std::shared_ptr<Epub>& epub) {
+  if (!epub) return false;
+  const std::string& lang = epub->getLanguage();
+  return lang.size() >= 2 && (lang[0] == 'k' || lang[0] == 'K') &&
+         (lang[1] == 'o' || lang[1] == 'O');
+}
+
+float effectiveReaderLineCompression(const std::shared_ptr<Epub>& epub) {
+  const float base = SETTINGS.getReaderLineCompression();
+  return isKoreanBook(epub) ? base * KOREAN_LINE_COMPRESSION_FACTOR : base;
+}
+
 uint8_t largestBlockPercent(const MemoryBudget::HeapSnapshot& heap) {
   if (heap.freeHeap == 0) {
     return 0;
@@ -1771,7 +1789,7 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     bool usedFallbackFont = false;
     auto loadSectionWithFont = [&](const int fontId, const char* cacheSuffix) {
       section = std::unique_ptr<Section>(new Section(epub, currentSpineIndex, renderer, cacheSuffix));
-      if (!section->loadSectionFile(fontId, SETTINGS.getReaderLineCompression(), SETTINGS.extraParagraphSpacing,
+      if (!section->loadSectionFile(fontId, effectiveReaderLineCompression(epub), SETTINGS.extraParagraphSpacing,
                                     SETTINGS.forceParagraphIndents, SETTINGS.paragraphAlignment, viewportWidth,
                                     viewportHeight, SETTINGS.hyphenationEnabled, SETTINGS.embeddedStyle,
                                     SETTINGS.imageRendering, SETTINGS.bionicReadingEnabled,
@@ -1804,7 +1822,7 @@ void EpubReaderActivity::render(RenderLock&& lock) {
       bool imagesWereSuppressed = false;
       bool layoutAbortedForLowMemory = false;
       section = std::unique_ptr<Section>(new Section(epub, currentSpineIndex, renderer));
-      if (!section->createSectionFile(readerFontId, SETTINGS.getReaderLineCompression(), SETTINGS.extraParagraphSpacing,
+      if (!section->createSectionFile(readerFontId, effectiveReaderLineCompression(epub), SETTINGS.extraParagraphSpacing,
                                       SETTINGS.forceParagraphIndents, SETTINGS.paragraphAlignment, viewportWidth,
                                       viewportHeight, SETTINGS.hyphenationEnabled, SETTINGS.embeddedStyle,
                                       SETTINGS.imageRendering, SETTINGS.bionicReadingEnabled,
@@ -1821,7 +1839,7 @@ void EpubReaderActivity::render(RenderLock&& lock) {
           bool fallbackImagesWereSuppressed = false;
           bool fallbackLayoutAbortedForLowMemory = false;
           fallbackBuildSucceeded = section->createSectionFile(
-              fallbackFontId, SETTINGS.getReaderLineCompression(), SETTINGS.extraParagraphSpacing,
+              fallbackFontId, effectiveReaderLineCompression(epub), SETTINGS.extraParagraphSpacing,
               SETTINGS.forceParagraphIndents, SETTINGS.paragraphAlignment, viewportWidth, viewportHeight,
               SETTINGS.hyphenationEnabled, SETTINGS.embeddedStyle, SETTINGS.imageRendering,
               SETTINGS.bionicReadingEnabled, SETTINGS.guideReadingEnabled, popupFn, &fallbackImagesWereSuppressed,
@@ -2041,7 +2059,7 @@ void EpubReaderActivity::silentIndexNextChapterIfNeeded(const uint16_t viewportW
   }
 
   Section nextSection(epub, nextSpineIndex, renderer);
-  if (nextSection.loadSectionFile(SETTINGS.getReaderFontId(), SETTINGS.getReaderLineCompression(),
+  if (nextSection.loadSectionFile(SETTINGS.getReaderFontId(), effectiveReaderLineCompression(epub),
                                   SETTINGS.extraParagraphSpacing, SETTINGS.forceParagraphIndents,
                                   SETTINGS.paragraphAlignment, viewportWidth, viewportHeight,
                                   SETTINGS.hyphenationEnabled, SETTINGS.embeddedStyle, SETTINGS.imageRendering,
@@ -2061,7 +2079,7 @@ void EpubReaderActivity::silentIndexNextChapterIfNeeded(const uint16_t viewportW
 
   LOG_DBG("ERS", "Silently indexing next chapter: %d (free=%u, maxAlloc=%u)", nextSpineIndex, ESP.getFreeHeap(),
           ESP.getMaxAllocHeap());
-  if (!nextSection.createSectionFile(SETTINGS.getReaderFontId(), SETTINGS.getReaderLineCompression(),
+  if (!nextSection.createSectionFile(SETTINGS.getReaderFontId(), effectiveReaderLineCompression(epub),
                                      SETTINGS.extraParagraphSpacing, SETTINGS.forceParagraphIndents,
                                      SETTINGS.paragraphAlignment, viewportWidth, viewportHeight,
                                      SETTINGS.hyphenationEnabled, SETTINGS.embeddedStyle, SETTINGS.imageRendering,
@@ -2391,13 +2409,13 @@ bool EpubReaderActivity::drawCurrentPageToBuffer(const std::string& filePath, Gf
   int renderFontId = readerFontId;
   auto section = std::make_unique<Section>(epub, spineIndex, renderer);
   bool loadedSection = section->loadSectionFile(
-      readerFontId, SETTINGS.getReaderLineCompression(), SETTINGS.extraParagraphSpacing, SETTINGS.forceParagraphIndents,
+      readerFontId, effectiveReaderLineCompression(epub), SETTINGS.extraParagraphSpacing, SETTINGS.forceParagraphIndents,
       SETTINGS.paragraphAlignment, viewportWidth, viewportHeight, SETTINGS.hyphenationEnabled, SETTINGS.embeddedStyle,
       SETTINGS.imageRendering, SETTINGS.bionicReadingEnabled, SETTINGS.guideReadingEnabled);
   if (!loadedSection && canUseFallbackFont) {
     section = std::make_unique<Section>(epub, spineIndex, renderer, FALLBACK_FONT_SECTION_CACHE_SUFFIX);
     loadedSection =
-        section->loadSectionFile(fallbackFontId, SETTINGS.getReaderLineCompression(), SETTINGS.extraParagraphSpacing,
+        section->loadSectionFile(fallbackFontId, effectiveReaderLineCompression(epub), SETTINGS.extraParagraphSpacing,
                                  SETTINGS.forceParagraphIndents, SETTINGS.paragraphAlignment, viewportWidth,
                                  viewportHeight, SETTINGS.hyphenationEnabled, SETTINGS.embeddedStyle,
                                  SETTINGS.imageRendering, SETTINGS.bionicReadingEnabled, SETTINGS.guideReadingEnabled);
@@ -2417,7 +2435,7 @@ bool EpubReaderActivity::drawCurrentPageToBuffer(const std::string& filePath, Gf
     section = std::make_unique<Section>(epub, spineIndex, renderer);
     bool layoutAbortedForLowMemory = false;
     if (!section->createSectionFile(
-            readerFontId, SETTINGS.getReaderLineCompression(), SETTINGS.extraParagraphSpacing,
+            readerFontId, effectiveReaderLineCompression(epub), SETTINGS.extraParagraphSpacing,
             SETTINGS.forceParagraphIndents, SETTINGS.paragraphAlignment, viewportWidth, viewportHeight,
             SETTINGS.hyphenationEnabled, SETTINGS.embeddedStyle, SETTINGS.imageRendering, SETTINGS.bionicReadingEnabled,
             SETTINGS.guideReadingEnabled, []() {}, nullptr, &layoutAbortedForLowMemory)) {
@@ -2429,7 +2447,7 @@ bool EpubReaderActivity::drawCurrentPageToBuffer(const std::string& filePath, Gf
       LOG_DBG("SLP", "EPUB: retrying sleep-page rebuild with fallback built-in font for spine %d", spineIndex);
       releaseReaderSdFontCachesForLowMemory(renderer, "SLP", "sleep-page fallback font rebuild");
       section = std::make_unique<Section>(epub, spineIndex, renderer, FALLBACK_FONT_SECTION_CACHE_SUFFIX);
-      if (!section->createSectionFile(fallbackFontId, SETTINGS.getReaderLineCompression(),
+      if (!section->createSectionFile(fallbackFontId, effectiveReaderLineCompression(epub),
                                       SETTINGS.extraParagraphSpacing, SETTINGS.forceParagraphIndents,
                                       SETTINGS.paragraphAlignment, viewportWidth, viewportHeight,
                                       SETTINGS.hyphenationEnabled, SETTINGS.embeddedStyle, SETTINGS.imageRendering,
