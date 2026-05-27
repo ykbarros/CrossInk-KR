@@ -25,7 +25,6 @@
 - Book selection now shows a loading popup before EPUB indexing or cache loading begins.
 
 ### Fixed
-- Korean EPUBs no longer have overlapping lines: when the book's language is Korean, reader line spacing is automatically widened to accommodate Hangul glyph extent. English and other-language books are unchanged.
 - Korean EPUB title and author text can render through the active Hangul-capable SD font instead of falling back to missing-glyph boxes.
 - Fixed inverted reader menus so front-button hint outlines keep the normal portrait shape while the labels stay readable in the inverted orientation.
 - Fixed web file uploads so replacing a book refreshes render/cache files without wiping that book's saved progress, per-book stats, or reader settings.
