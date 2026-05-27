@@ -1,6 +1,12 @@
-> **This is a personal fork of [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader)** with a focus on improved fonts and minimal reading stats.
+> **This is a personal fork of [CrossInk](https://github.com/uxjulia/CrossInk)** (itself a fork of [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader)) adding Korean (한국어) support and SD-card-only font management.
 
-## What's different in this fork
+## What I added on top of CrossInk
+
+- **Korean (한국어) UI language** with full translations for the device interface.
+- **Hangul-capable EPUB reading** via SD-card fonts — install a Korean font like [Pretendard](https://github.com/orioncactus/pretendard) as a `.cpfont` on your SD card and select it as your reader font to read Korean books cleanly.
+- **Removed the on-device font downloader.** Fonts are installed by copying `.cpfont` files directly to the SD card, which is simpler and avoids needing WiFi just to add a typeface.
+
+## What's different in CrossInk
 
 My goal with this fork was to maintain the core Crosspoint firmware while integrating my preferred typography and some lightweight reading statistics. I’ve focused on keeping the underlying system stable while layering in a few "nice-to-have" features and UI refinements along the way.
 
@@ -23,8 +29,6 @@ My goal with this fork was to maintain the core Crosspoint firmware while integr
 
 ### Highlights
 
-- Korean (한국어) UI language and Hangul-capable EPUB reader font support — install a Korean SD font (e.g. Pretendard) and select it as your reader font.
-- Removed the on-device font downloader. Reader fonts are now installed by copying `.cpfont` files directly to the SD card.
 - New reader fonts: ChareInk, Lexend Deca, and Bitter.
 - Unicode emoji and miscellaneous symbols support (a limited subset).
 - Adjusted font sizes: Teensy (8pt), Itty Bitty (9pt), Tiny (10pt), Small (12pt), Medium (14pt), Large (16pt), Extra Large (18pt), Huge (20pt). See [Font Sizes](#font-sizes) for more details.
