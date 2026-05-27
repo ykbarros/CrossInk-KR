@@ -627,6 +627,12 @@ int32_t SdCardFont::findGlobalGlyphIndex(const PerStyle& s, uint32_t codepoint) 
   return -1;
 }
 
+bool SdCardFont::hasCodepoint(const uint32_t codepoint, const uint8_t style) const {
+  const uint8_t styleIdx = resolveStyle(style);
+  if (styleIdx >= MAX_STYLES || !styles_[styleIdx].present || !styles_[styleIdx].fullIntervals) return false;
+  return findGlobalGlyphIndex(styles_[styleIdx], codepoint) >= 0;
+}
+
 // --- Prewarm ---
 
 int SdCardFont::prewarm(const char* utf8Text, uint8_t styleMask, bool metadataOnly) {

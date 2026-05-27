@@ -23,6 +23,9 @@ My goal with this fork was to maintain the core Crosspoint firmware while integr
 
 ### Highlights
 
+- Korean (한국어) UI language and Hangul-capable EPUB reader font support.
+- Per-Language Fonts settings screen — set a different default reader font for Korean vs. English vs. any other UI language, applied automatically based on each book's metadata language.
+- Removed the on-device font downloader. Reader fonts are now installed by copying `.cpfont` files directly to the SD card.
 - New reader fonts: ChareInk, Lexend Deca, and Bitter.
 - Unicode emoji and miscellaneous symbols support (a limited subset).
 - Adjusted font sizes: Teensy (8pt), Itty Bitty (9pt), Tiny (10pt), Small (12pt), Medium (14pt), Large (16pt), Extra Large (18pt), Huge (20pt). See [Font Sizes](#font-sizes) for more details.

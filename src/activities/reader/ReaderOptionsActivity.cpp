@@ -10,7 +10,6 @@
 #include "MappedInputManager.h"
 #include "SdCardFontSystem.h"
 #include "SettingsList.h"
-#include "activities/settings/FontDownloadActivity.h"
 #include "activities/settings/FontSelectionActivity.h"
 #include "activities/settings/StatusBarSettingsActivity.h"
 #include "activities/util/IntervalSelectionActivity.h"
@@ -63,10 +62,6 @@ void ReaderOptionsActivity::rebuildSettingsList() {
   std::copy_if(allSettings.begin(), allSettings.end(), std::back_inserter(settings),
                [](const auto& s) { return s.category == StrId::STR_CAT_READER; });
 
-  const auto fontSizeSetting = std::find_if(settings.begin(), settings.end(),
-                                            [](const auto& setting) { return setting.nameId == StrId::STR_FONT_SIZE; });
-  const auto manageFontsSetting = SettingInfo::Action(StrId::STR_MANAGE_FONTS, SettingAction::DownloadFonts);
-  settings.insert(fontSizeSetting == settings.end() ? settings.end() : fontSizeSetting + 1, manageFontsSetting);
   settings.push_back(SettingInfo::Action(StrId::STR_CUSTOMISE_STATUS_BAR, SettingAction::CustomiseStatusBar));
 
   settingsCount = static_cast<int>(settings.size());
@@ -117,16 +112,6 @@ void ReaderOptionsActivity::toggleCurrentSetting() {
       SETTINGS.*(setting.valuePtr) = cur + setting.valueRange.step;
     }
   } else if (setting.type == SettingType::ACTION) {
-    if (setting.action == SettingAction::DownloadFonts) {
-      startActivityForResult(std::make_unique<FontDownloadActivity>(renderer, mappedInput),
-                             [this](const ActivityResult&) {
-                               SETTINGS.saveToFile();
-                               sdFontSystem.refreshIfDirty();
-                               rebuildSettingsList();
-                               requestUpdate();
-                             });
-      return;
-    }
     if (setting.action == SettingAction::CustomiseStatusBar) {
       startActivityForResult(std::make_unique<StatusBarSettingsActivity>(renderer, mappedInput),
                              [](const ActivityResult&) { SETTINGS.saveToFile(); });

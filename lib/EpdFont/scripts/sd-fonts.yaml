@@ -213,6 +213,15 @@ families:
       italic:     {path: "builtinFonts/source/NotoSans/NotoSans-Italic.ttf"}
       bolditalic: {path: "builtinFonts/source/NotoSans/NotoSans-BoldItalic.ttf"}
 
+  - name: Noto Sans KR
+    description: "Clean Korean sans-serif"
+    languages: "Korean, Latin"
+    intervals: latin-ext,hangul
+    sizes: [8, 9, 10, 12, 14, 16, 18, 20]
+    styles:
+      regular: {url: "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf", variable: {wght: 400}}
+      bold:    {url: "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf", variable: {wght: 700}}
+
   - name: SourceSans3
     description: "Adobe humanist sans-serif"
     languages: "Latin, Greek, Cyrillic"

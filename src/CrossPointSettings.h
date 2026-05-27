@@ -1,6 +1,7 @@
 #pragma once
 #include <HalStorage.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <iosfwd>
 
@@ -270,6 +271,15 @@ class CrossPointSettings {
     QUICK_RESUME_SLEEP_SCREEN_COUNT
   };
 
+  static constexpr uint8_t LANGUAGE_FONT_SETTING_COUNT = 12;
+  static constexpr uint8_t LANGUAGE_FONT_CODE_LEN = 8;
+  struct LanguageFontSetting {
+    char languageCode[LANGUAGE_FONT_CODE_LEN] = "";
+    uint8_t fontFamily = LEXENDDECA;
+    uint8_t fontSize = MEDIUM;
+    char sdFontFamilyName[64] = "";
+  };
+
   // Sleep screen settings
   uint8_t sleepScreen = DARK;
   // Sleep screen cover mode settings
@@ -388,6 +398,7 @@ class CrossPointSettings {
   uint8_t tiltPageTurnDirection = TILT_LEFT_RIGHT;
   // Language setting (Language enum index, default 0 = EN)
   uint8_t language = 0;
+  LanguageFontSetting languageFonts[LANGUAGE_FONT_SETTING_COUNT] = {};
   // Quick Resume: keep current content visible with moon icon instead of showing a static sleep screen.
   uint8_t quickResumeSleepScreen = QUICK_RESUME_NEVER;
 
@@ -428,6 +439,9 @@ class CrossPointSettings {
   bool changeReaderFontSize(bool larger);
   int getReaderFontId() const;
   int getBuiltInReaderFontId() const;
+  static bool normalizeLanguageCode(const char* input, char* out, size_t outSize);
+  bool applyReaderFontForLanguage(const char* languageCode);
+  bool saveActiveReaderFontForLanguage(const char* languageCode);
 
   // If count_only is true, returns the number of settings items that would be written.
   uint8_t writeSettings(HalFile& file, bool count_only = false) const;

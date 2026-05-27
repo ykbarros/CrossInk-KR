@@ -6,6 +6,7 @@
 #include <Serialization.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <iterator>
 #include <string>
@@ -688,6 +689,69 @@ int CrossPointSettings::getReaderFontId() const {
   }
 
   return getBuiltInReaderFontId();
+}
+
+bool CrossPointSettings::normalizeLanguageCode(const char* input, char* out, const size_t outSize) {
+  if (!out || outSize == 0) return false;
+  out[0] = '\0';
+  if (!input || input[0] == '\0') return false;
+
+  size_t len = 0;
+  for (size_t i = 0; input[i] != '\0' && len < outSize - 1; ++i) {
+    const unsigned char c = static_cast<unsigned char>(input[i]);
+    if (c == '-' || c == '_') break;
+    if (std::isalnum(c)) {
+      out[len++] = static_cast<char>(std::tolower(c));
+    }
+  }
+  out[len] = '\0';
+  return len > 0;
+}
+
+bool CrossPointSettings::applyReaderFontForLanguage(const char* languageCode) {
+  char normalized[LANGUAGE_FONT_CODE_LEN];
+  if (!normalizeLanguageCode(languageCode, normalized, sizeof(normalized))) return false;
+
+  for (const auto& langFont : languageFonts) {
+    if (strcmp(langFont.languageCode, normalized) != 0) continue;
+
+    fontFamily = langFont.fontFamily < BUILTIN_FONT_COUNT ? langFont.fontFamily : LEXENDDECA;
+    fontSize = langFont.fontSize < SD_FONT_MAX_SIZE_STEPS ? langFont.fontSize : MEDIUM;
+    strncpy(sdFontFamilyName, langFont.sdFontFamilyName, sizeof(sdFontFamilyName) - 1);
+    sdFontFamilyName[sizeof(sdFontFamilyName) - 1] = '\0';
+    LOG_DBG("CPS", "Applied reader font default for language '%s'", normalized);
+    return true;
+  }
+
+  return false;
+}
+
+bool CrossPointSettings::saveActiveReaderFontForLanguage(const char* languageCode) {
+  char normalized[LANGUAGE_FONT_CODE_LEN];
+  if (!normalizeLanguageCode(languageCode, normalized, sizeof(normalized))) return false;
+
+  LanguageFontSetting* slot = nullptr;
+  for (auto& langFont : languageFonts) {
+    if (strcmp(langFont.languageCode, normalized) == 0) {
+      slot = &langFont;
+      break;
+    }
+    if (!slot && langFont.languageCode[0] == '\0') {
+      slot = &langFont;
+    }
+  }
+  if (!slot) {
+    slot = &languageFonts[LANGUAGE_FONT_SETTING_COUNT - 1];
+  }
+
+  strncpy(slot->languageCode, normalized, sizeof(slot->languageCode) - 1);
+  slot->languageCode[sizeof(slot->languageCode) - 1] = '\0';
+  slot->fontFamily = fontFamily < BUILTIN_FONT_COUNT ? fontFamily : LEXENDDECA;
+  slot->fontSize = fontSize < SD_FONT_MAX_SIZE_STEPS ? fontSize : MEDIUM;
+  strncpy(slot->sdFontFamilyName, sdFontFamilyName, sizeof(slot->sdFontFamilyName) - 1);
+  slot->sdFontFamilyName[sizeof(slot->sdFontFamilyName) - 1] = '\0';
+  LOG_DBG("CPS", "Saved reader font default for language '%s'", normalized);
+  return true;
 }
 
 int CrossPointSettings::getBuiltInReaderFontId() const {

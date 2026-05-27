@@ -80,6 +80,8 @@ class GfxRenderer {
 
   void renderChar(const EpdFontFamily& fontFamily, uint32_t cp, int* x, int* y, bool pixelState,
                   EpdFontFamily::Style style) const;
+  bool findSdFallbackGlyph(uint32_t cp, EpdFontFamily::Style style, const EpdFontData** outFontData,
+                           const EpdGlyph** outGlyph, uint8_t* outResolvedStyle) const;
   void freeBwBufferChunks();
   void freeBitmapScratchBuffers();
   bool ensureBitmapScratchBuffers(size_t outputRowSize, size_t rowBytesSize) const;

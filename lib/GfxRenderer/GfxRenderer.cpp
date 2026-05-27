@@ -104,6 +104,30 @@ bool GfxRenderer::releaseSdCardFontForLowMemory(int fontId) const {
   return true;
 }
 
+bool GfxRenderer::findSdFallbackGlyph(const uint32_t cp, const EpdFontFamily::Style style,
+                                      const EpdFontData** outFontData, const EpdGlyph** outGlyph,
+                                      uint8_t* outResolvedStyle) const {
+  for (const auto& entry : sdCardFonts_) {
+    SdCardFont* sdFont = entry.second;
+    if (!sdFont) continue;
+    const uint8_t resolvedStyle = resolveSdCardStyle(*sdFont, style);
+    if (!sdFont->hasCodepoint(cp, resolvedStyle)) continue;
+
+    EpdFont* epdFont = sdFont->getEpdFont(resolvedStyle);
+    if (!epdFont || !epdFont->data) continue;
+
+    const EpdGlyph* glyph = epdFont->getGlyph(cp);
+    if (!glyph) continue;
+
+    if (outFontData) *outFontData = epdFont->data;
+    if (outGlyph) *outGlyph = glyph;
+    if (outResolvedStyle) *outResolvedStyle = resolvedStyle;
+    return true;
+  }
+
+  return false;
+}
+
 void GfxRenderer::begin() {
   frameBuffer = display.getFrameBuffer();
   if (!frameBuffer) {
@@ -501,17 +525,9 @@ static void renderCharScaled(const GfxRenderer& renderer, GfxRenderer::RenderMod
 }
 
 template <TextRotation rotation = TextRotation::None>
-static void renderCharImpl(const GfxRenderer& renderer, GfxRenderer::RenderMode renderMode,
-                           const EpdFontFamily& fontFamily, const uint32_t cp, int cursorX, int cursorY,
-                           const bool pixelState, const EpdFontFamily::Style style) {
-  const auto glyphData = fontFamily.getGlyphData(cp, style);
-  const EpdGlyph* glyph = glyphData.glyph;
-  const EpdFontData* fontData = glyphData.fontData;
-  if (!glyph || !fontData) {
-    LOG_ERR("GFX", "No glyph for codepoint %d", cp);
-    return;
-  }
-
+static void renderGlyphImpl(const GfxRenderer& renderer, GfxRenderer::RenderMode renderMode,
+                            const EpdFontData* fontData, const EpdGlyph* glyph, int cursorX, int cursorY,
+                            const bool pixelState) {
   const bool is2Bit = fontData->is2Bit;
   const uint8_t width = glyph->width;
   const uint8_t height = glyph->height;
@@ -593,6 +609,19 @@ static void renderCharImpl(const GfxRenderer& renderer, GfxRenderer::RenderMode 
   }
 }
 
+template <TextRotation rotation = TextRotation::None>
+static void renderCharImpl(const GfxRenderer& renderer, GfxRenderer::RenderMode renderMode,
+                           const EpdFontFamily& fontFamily, const uint32_t cp, int cursorX, int cursorY,
+                           const bool pixelState, const EpdFontFamily::Style style) {
+  const auto glyphData = fontFamily.getGlyphData(cp, style);
+  if (!glyphData.glyph || !glyphData.fontData) {
+    LOG_ERR("GFX", "No glyph for codepoint %d", cp);
+    return;
+  }
+
+  renderGlyphImpl<rotation>(renderer, renderMode, glyphData.fontData, glyphData.glyph, cursorX, cursorY, pixelState);
+}
+
 // IMPORTANT: This function is in critical rendering path and is called for every pixel. Please keep it as simple and
 // efficient as possible.
 void GfxRenderer::drawPixel(const int x, const int y, const bool state) const {
@@ -637,9 +666,7 @@ int GfxRenderer::getTextWidth(const int fontId, const char* text, const EpdFontF
     return 0;
   }
 
-  int w = 0, h = 0;
-  fontIt->second.getTextDimensions(text, &w, &h, style);
-  return w;
+  return getTextAdvanceX(fontId, text, style);
 }
 
 void GfxRenderer::drawCenteredText(const int fontId, const int y, const char* text, const bool black,
@@ -688,8 +715,16 @@ void GfxRenderer::drawText(const int fontId, const int x, const int y, const cha
     }
 
     cp = font.applyLigatures(cp, text, style);
-    cp = font.getFallbackCodepoint(cp, style);
-    const bool hasRealGlyph = font.findGlyphData(cp, style).glyph != nullptr;
+    const uint32_t requestedCp = cp;
+    const bool hasRequestedGlyph = font.findGlyphData(requestedCp, style).glyph != nullptr;
+    const EpdFontData* sdFallbackFontData = nullptr;
+    const EpdGlyph* sdFallbackGlyph = nullptr;
+    const bool hasSdFallback =
+        !hasRequestedGlyph && findSdFallbackGlyph(requestedCp, style, &sdFallbackFontData, &sdFallbackGlyph, nullptr);
+    if (!hasRequestedGlyph && !hasSdFallback) {
+      cp = font.getFallbackCodepoint(requestedCp, style);
+    }
+    const bool hasRealGlyph = hasRequestedGlyph || hasSdFallback || font.findGlyphData(cp, style).glyph != nullptr;
 
     // Differential rounding: snap (previous advance + current kern) as one unit so
     // identical character pairs always produce the same pixel step regardless of
@@ -738,6 +773,17 @@ void GfxRenderer::drawText(const int fontId, const int x, const int y, const cha
       lastBaseTop = metrics.top;
       prevAdvanceFP = metrics.advanceX;
       prevCp = cp;
+      continue;
+    }
+
+    if (hasSdFallback) {
+      lastBaseLeft = sdFallbackGlyph->left;
+      lastBaseWidth = sdFallbackGlyph->width;
+      lastBaseTop = sdFallbackGlyph->top;
+      prevAdvanceFP = sdFallbackGlyph->advanceX;
+      renderGlyphImpl<TextRotation::None>(*this, renderMode, sdFallbackFontData, sdFallbackGlyph, lastBaseX, yPos,
+                                          black);
+      prevCp = requestedCp;
       continue;
     }
 
@@ -1876,13 +1922,20 @@ int GfxRenderer::getTextAdvanceX(const int fontId, const char* text, EpdFontFami
       continue;
     }
     cp = font.applyLigatures(cp, text, style);
-    cp = font.getFallbackCodepoint(cp, style);
-    const bool hasRealGlyph = font.findGlyphData(cp, style).glyph != nullptr;
+    const uint32_t requestedCp = cp;
+    const bool hasRequestedGlyph = font.findGlyphData(requestedCp, style).glyph != nullptr;
+    const EpdGlyph* sdFallbackGlyph = nullptr;
+    const bool hasSdFallback =
+        !hasRequestedGlyph && findSdFallbackGlyph(requestedCp, style, nullptr, &sdFallbackGlyph, nullptr);
+    if (!hasRequestedGlyph && !hasSdFallback) {
+      cp = font.getFallbackCodepoint(requestedCp, style);
+    }
+    const bool hasRealGlyph = hasRequestedGlyph || hasSdFallback || font.findGlyphData(cp, style).glyph != nullptr;
 
     // Differential rounding: snap (previous advance + current kern) together,
     // matching drawText so measurement and rendering agree exactly.
     if (prevCp != 0) {
-      const auto kernFP = font.getKerning(prevCp, cp, style);  // 4.4 fixed-point kern
+      const auto kernFP = font.getKerning(prevCp, hasSdFallback ? requestedCp : cp, style);  // 4.4 fixed-point kern
       widthPx += fp4::toPixel(prevAdvanceFP + kernFP);         // snap 12.4 fixed-point to nearest pixel
     }
 
@@ -1907,6 +1960,15 @@ int GfxRenderer::getTextAdvanceX(const int fontId, const char* text, EpdFontFami
     if (!hasRealGlyph && syntheticGlyph::isReplacementFallback(cp)) {
       prevAdvanceFP = getSyntheticReplacementGlyphMetrics(font, style).advanceX;
       prevCp = cp;
+      continue;
+    }
+
+    if (hasSdFallback) {
+      prevAdvanceFP = sdFallbackGlyph ? sdFallbackGlyph->advanceX : 0;
+      if ((style & (EpdFontFamily::SUP | EpdFontFamily::SUB)) != 0) {
+        prevAdvanceFP = (prevAdvanceFP + 1) / 2;
+      }
+      prevCp = requestedCp;
       continue;
     }
 
@@ -1986,8 +2048,16 @@ void GfxRenderer::drawTextRotated90CW(const int fontId, const int x, const int y
     }
 
     cp = font.applyLigatures(cp, text, style);
-    cp = font.getFallbackCodepoint(cp, style);
-    const bool hasRealGlyph = font.findGlyphData(cp, style).glyph != nullptr;
+    const uint32_t requestedCp = cp;
+    const bool hasRequestedGlyph = font.findGlyphData(requestedCp, style).glyph != nullptr;
+    const EpdFontData* sdFallbackFontData = nullptr;
+    const EpdGlyph* sdFallbackGlyph = nullptr;
+    const bool hasSdFallback =
+        !hasRequestedGlyph && findSdFallbackGlyph(requestedCp, style, &sdFallbackFontData, &sdFallbackGlyph, nullptr);
+    if (!hasRequestedGlyph && !hasSdFallback) {
+      cp = font.getFallbackCodepoint(requestedCp, style);
+    }
+    const bool hasRealGlyph = hasRequestedGlyph || hasSdFallback || font.findGlyphData(cp, style).glyph != nullptr;
 
     // Differential rounding: snap (previous advance + current kern) as one unit,
     // subtracting for the rotated coordinate direction.
@@ -2035,6 +2105,17 @@ void GfxRenderer::drawTextRotated90CW(const int fontId, const int x, const int y
       lastBaseTop = metrics.top;
       prevAdvanceFP = metrics.advanceX;
       prevCp = cp;
+      continue;
+    }
+
+    if (hasSdFallback) {
+      lastBaseLeft = sdFallbackGlyph->left;
+      lastBaseWidth = sdFallbackGlyph->width;
+      lastBaseTop = sdFallbackGlyph->top;
+      prevAdvanceFP = sdFallbackGlyph->advanceX;
+      renderGlyphImpl<TextRotation::Rotated90CW>(*this, renderMode, sdFallbackFontData, sdFallbackGlyph, x, lastBaseY,
+                                                 black);
+      prevCp = requestedCp;
       continue;
     }
 

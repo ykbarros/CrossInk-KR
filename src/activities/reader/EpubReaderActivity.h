@@ -120,6 +120,7 @@ class EpubReaderActivity final : public Activity {
   void setBookCompleted(bool isCompleted);
   void showCompletedFeedback(bool isCompleted);
   void showTiltPageTurnFeedback(bool enabled);
+  void saveActiveReaderFontDefault();
 
   // Footnote navigation
   void navigateToHref(const std::string& href, bool savePosition = false);

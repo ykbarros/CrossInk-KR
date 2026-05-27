@@ -81,6 +81,7 @@ class SdCardFont {
 
   // Resolve requested style bits to the closest present style.
   uint8_t resolveStyle(uint8_t style) const;
+  bool hasCodepoint(uint32_t codepoint, uint8_t style) const;
 
   // Resolve every requested style bit through fallback and return the actual
   // styles that need cache/advance preparation.

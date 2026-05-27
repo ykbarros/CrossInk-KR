@@ -3,6 +3,11 @@
 ## [Unreleased]
 
 ### Added
+- Korean language support, including a Korean interface option, Hangul-capable EPUB reader font downloads, and per-EPUB-language reader font defaults.
+- Per-Language Fonts settings screen so the reader font for each UI language can be set directly without opening a book in that language.
+
+### Removed
+- Manage Fonts / on-device font downloader. Reader fonts are now installed by copying `.cpfont` files to the SD card.
 - Adjustable reader line-height setting with percent-based spacing for EPUB and TXT books.
 - Nearby Reading Stats sync between CrossInk readers using direct ESP-NOW device-to-device messages.
 - Separate Reading Stats totals for this device and all synced devices when nearby sync data is available.
@@ -21,6 +26,7 @@
 - Book selection now shows a loading popup before EPUB indexing or cache loading begins.
 
 ### Fixed
+- Korean EPUB title and author text can render through the active Hangul-capable SD font instead of falling back to missing-glyph boxes.
 - Fixed inverted reader menus so front-button hint outlines keep the normal portrait shape while the labels stay readable in the inverted orientation.
 - Fixed web file uploads so replacing a book refreshes render/cache files without wiping that book's saved progress, per-book stats, or reader settings.
 - Fixed Lyra Carousel popup rendering so loading, indexing, and sleep-entry popups appear in the right place again.

@@ -23,7 +23,7 @@ enum class SettingAction {
   CheckForUpdates,
   SdFirmwareUpdate,
   Language,
-  DownloadFonts,
+  LanguageFonts,
 };
 
 struct SettingInfo {

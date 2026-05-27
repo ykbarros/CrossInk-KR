@@ -137,6 +137,9 @@ void ReaderActivity::onEnter() {
       onGoBack();
       return;
     }
+    if (SETTINGS.applyReaderFontForLanguage(epub->getLanguage().c_str())) {
+      sdFontSystem.ensureLoaded(renderer);
+    }
     onGoToEpubReader(std::move(epub));
   }
 }
